@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NextStep AI Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* --- DESIGN UPGRADES --- */
+        body { 
+            /* Modern Gradient Background */
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; 
+            flex-direction: column; /* Stack title and chat */
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            color: white;
+        }
+
+        /* Main Page Title */
+        .brand-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        /* The Chat Window (Bigger Size) */
+        .chat-container { 
+            width: 800px;        /* Wider */
+            height: 80vh;        /* Taller */
+            background: white; 
+            border-radius: 16px; /* Rounder corners */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            color: #333;         /* Reset text color for inside the box */
+        }
+        
+        /* Chat Header */
+        .chat-header { 
+            background: #0062ff; 
+            color: white; 
+            padding: 20px; 
+            text-align: center; 
+            font-weight: bold; 
+            font-size: 20px; 
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* Messages Area */
+        .chat-messages { flex: 1; padding: 30px; overflow-y: auto; background: #f9f9f9; display: flex; flex-direction: column; gap: 20px; }
+        
+        /* Message Bubbles */
+        .message { max-width: 80%; padding: 15px 20px; border-radius: 15px; font-size: 15px; line-height: 1.6; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        .user-message { align-self: flex-end; background: #0062ff; color: white; border-bottom-right-radius: 2px; }
+        
+        .bot-message { align-self: flex-start; background: white; color: #333; border-bottom-left-radius: 2px; border: 1px solid #e0e0e0; }
+        .bot-message strong { color: #0062ff; }
+
+        /* Input Area */
+        .chat-input-area { padding: 20px; background: white; border-top: 1px solid #eee; display: flex; align-items: center; gap: 15px; }
+        
+        input[type="text"] { flex: 1; padding: 15px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; background: #f8f9fa; }
+        input[type="text"]:focus { border-color: #0062ff; background: white; }
+
+        .btn { border: none; cursor: pointer; padding: 12px; border-radius: 50%; transition: 0.2s; display: flex; align-items: center; justify-content: center; width: 45px; height: 45px; }
+        .btn-attach { background: #f0f0f0; color: #555; font-size: 20px; }
+        .btn-attach:hover { background: #e0e0e0; }
+        .btn-send { background: #0062ff; color: white; font-size: 18px; }
+        .btn-send:hover { background: #004ecc; box-shadow: 0 4px 10px rgba(0,98,255,0.3); }
+
+        .typing-indicator { font-style: italic; color: #888; font-size: 13px; margin: 0 0 10px 30px; display: none; }
+        .file-badge { font-size: 12px; background: #e1f5fe; color: #0277bd; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; display: inline-block; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="brand-title">🚀 NextStep AI</div>
+
+    <div class="chat-container">
+        <div class="chat-header">Interview Preparation Agent</div>
+        
+        <div class="chat-messages" id="messages">
+            <div class="message bot-message">
+                <strong>Welcome to NextStep!</strong><br>
+                Please tell me the job role you're applying for and the company, and I'll provide tailored advice.
+</div>
+        </div>
+
+        <div class="typing-indicator" id="loader">Agent is analyzing...</div>
+
+        <div class="chat-input-area">
+            <input type="file" id="fileInput" accept=".pdf" style="display: none;" onchange="showFilePreview()">
+            <button class="btn btn-attach" onclick="document.getElementById('fileInput').click()" title="Upload Resume">📎</button>
+            <input type="text" id="userInput" placeholder="Type a message..." onkeypress="handleEnter(event)">
+            <button class="btn btn-send" onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+<script>
+    // --- CONFIGURATION ---
+    const WEBHOOK_URL = "https://n8ngc.codeblazar.org/webhook/0f937834-46ec-44d6-9fb1-43c0ea342909"; 
+    // ---------------------
+
+    const messagesDiv = document.getElementById('messages');
+    const userInput = document.getElementById('userInput');
+    const fileInput = document.getElementById('fileInput');
+    const loader = document.getElementById('loader');
+
+    function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
+
+    function showFilePreview() {
+        const file = fileInput.files[0];
+        if (file) {
+            userInput.value = `[Attached: ${file.name}] ` + userInput.value;
+            userInput.focus();
+        }
+    }
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        const file = fileInput.files[0];
+
+        if (!text && !file) return;
+
+        addMessage(text, 'user', file ? file.name : null);
+        
+        userInput.value = '';
+        fileInput.value = ''; 
+        
+        loader.style.display = 'block';
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        const formData = new FormData();
+        formData.append("message", text); 
+        if (file) formData.append("data", file);
+
+        try {
+            const response = await fetch(WEBHOOK_URL, { method: "POST", body: formData });
+            const responseText = await response.text();
+            let botReply = "";
+
+            try {
+                const json = JSON.parse(responseText);
+                botReply = json.output || json.message || json.text || JSON.stringify(json);
+            } catch (e) {
+                botReply = responseText;
+            }
+
+            loader.style.display = 'none';
+            addMessage(botReply, 'bot');
+
+        } catch (error) {
+            loader.style.display = 'none';
+            addMessage("Error: Could not connect to the agent.", 'bot');
+        }
+    }
+
+    function addMessage(text, sender, fileName) {
+        const div = document.createElement('div');
+        div.classList.add('message', sender + '-message');
+
+        let content = "";
+        if (fileName) content += `<div class="file-badge">📄 ${fileName}</div><br>`;
+        content += marked.parse(text); 
+
+        div.innerHTML = content;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+</script>
+
+</body>
+</html>
